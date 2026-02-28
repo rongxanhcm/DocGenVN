@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DocGen VN — AI Tạo Tài Liệu Học Thuật</title>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans+Thai:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -674,6 +674,21 @@ let generatedFilename = 'tai-lieu.docx';
 let logoBase64 = null;
 let logoMimeType = null;
 
+// ─── CHECK LIBRARIES ─────────────────────────────────────
+window.addEventListener('DOMContentLoaded', function() {
+  if (typeof window.docx === 'undefined') {
+    console.error('❌ docx library failed to load');
+    showError('Lỗi: Thư viện tạo file Word chưa được tải. Vui lòng refresh trang.');
+  } else {
+    console.log('✓ docx library loaded');
+  }
+  if (typeof saveAs === 'undefined') {
+    console.error('❌ FileSaver library failed to load');
+  } else {
+    console.log('✓ FileSaver library loaded');
+  }
+});
+
 // ─── LOGO UPLOAD ─────────────────────────────────────────
 function handleLogoUpload(e) {
   const file = e.target.files[0];
@@ -989,6 +1004,11 @@ Kết luận`
 
 // ─── BUILD DOCX ──────────────────────────────────────────
 async function buildDocx(content, fmt, cover) {
+  // Check if docx library is loaded
+  if (typeof window.docx === 'undefined') {
+    throw new Error('docx library not loaded. Please refresh the page and try again.');
+  }
+
   const {
     Document, Packer, Paragraph, TextRun,
     HeadingLevel, AlignmentType, TableOfContents,
