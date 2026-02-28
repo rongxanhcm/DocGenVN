@@ -749,14 +749,17 @@ function updateStructurePreview(text) {
   if (!lines.length) { preview.style.display = 'none'; return; }
 
   preview.style.display = 'block';
-  items.innerHTML = lines.slice(0, 15).map(line => {
+  const displayLines = lines.slice(0, 30);
+  const hasMore = lines.length > 30;
+  
+  items.innerHTML = displayLines.map(line => {
     const isChapter = /^(chương|mở đầu|kết luận|phần|\d+\.?\s+[A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ])/i.test(line.trim());
     const indent = line.match(/^(\s+)/)?.[1]?.length || 0;
     return `<div class="struct-item ${isChapter && indent === 0 ? 'chapter' : ''}" style="padding-left:${Math.min(indent * 8, 32)}px">
       <div class="dot"></div>
       <span>${line.trim()}</span>
     </div>`;
-  }).join('');
+  }).join('') + (hasMore ? `<div class="struct-item" style="color:var(--text3);font-size:11px;margin-top:8px;">... và ${lines.length - 30} mục khác</div>` : '');
 }
 
 // ─── VALIDATE ────────────────────────────────────────────
@@ -767,6 +770,113 @@ function showError(msg) {
 }
 function clearError() {
   document.getElementById('error-msg').style.display = 'none';
+}
+
+// ─── HELPER: Call AI API ─────────────────────────────────
+async function callAI(prompt) {
+  const response = await fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt })
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.content.map(c => c.text || '').join('').trim();
+}
+
+// ─── HELPER: Parse structure into chapters ──────────────
+function parseStructureIntoChapters(structureText) {
+  const lines = structureText.split('\n').filter(l => l.trim());
+  const chapters = [];
+  let currentChapter = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const indent = line.match(/^(\s*)/)[1].length;
+    
+    // Check if this is a main chapter (level 1)
+    const isMainChapter = indent === 0 || /^(chương|mở đầu|kết luận|phần|lời|giới thiệu)/i.test(trimmed);
+    
+    if (isMainChapter) {
+      // Start a new chapter
+      if (currentChapter) chapters.push(currentChapter);
+      currentChapter = {
+        title: trimmed,
+        sections: [{ heading: trimmed, level: 1 }]
+      };
+    } else if (currentChapter) {
+      // Add subsection to current chapter
+      const level = indent > 0 ? 2 : 1;
+      currentChapter.sections.push({ heading: trimmed, level });
+    }
+  }
+  
+  if (currentChapter) chapters.push(currentChapter);
+  
+  console.log(`📋 Parsed ${chapters.length} chapters with ${chapters.reduce((sum, ch) => sum + ch.sections.length, 0)} total sections`);
+  return chapters;
+}
+
+// ─── HELPER: Generate content for one chapter ───────────
+async function generateChapter(chapterInfo, context) {
+  const { topic, docTypeLabel, major, description } = context;
+  
+  const prompt = `Write content for this chapter of a Vietnamese academic document.
+
+TOPIC: ${topic}
+DOCUMENT TYPE: ${docTypeLabel}
+${major ? `FIELD: ${major}` : ''}
+${description ? `CONTEXT: ${description}` : ''}
+
+CHAPTER: ${chapterInfo.title}
+
+SECTIONS TO WRITE (${chapterInfo.sections.length} sections):
+${chapterInfo.sections.map((s, idx) => `${idx + 1}. ${s.heading}`).join('\n')}
+
+REQUIREMENTS:
+- Write 150-250 words for EACH section
+- Write in Vietnamese, academic style
+- Be specific and detailed
+- Generate ALL ${chapterInfo.sections.length} sections
+
+OUTPUT FORMAT:
+---SECTION---
+HEADING: [exact heading from list]
+LEVEL: ${chapterInfo.sections[0].level === 1 ? '1' : '1 or 2'}
+CONTENT: [150-250 words of Vietnamese content, no line breaks]
+---SECTION---
+HEADING: [next heading]
+LEVEL: [1 or 2]
+CONTENT: [content]
+
+Generate all ${chapterInfo.sections.length} sections now.`;
+
+  const rawText = await callAI(prompt);
+  
+  // Parse response
+  const sections = [];
+  const sectionBlocks = rawText.split('---SECTION---').filter(s => s.trim());
+  
+  for (const block of sectionBlocks) {
+    const headingMatch = block.match(/HEADING:\s*(.+?)(?:\n|LEVEL:)/);
+    const levelMatch = block.match(/LEVEL:\s*(\d+)/);
+    const contentMatch = block.match(/CONTENT:\s*([\s\S]+?)(?=\nHEADING:|\nLEVEL:|---SECTION---|$)/);
+    
+    if (headingMatch && levelMatch) {
+      sections.push({
+        heading: headingMatch[1].trim(),
+        level: parseInt(levelMatch[1]),
+        content: contentMatch ? contentMatch[1].trim() : ''
+      });
+    }
+  }
+  
+  console.log(`✓ Chapter "${chapterInfo.title}": Generated ${sections.length}/${chapterInfo.sections.length} sections`);
+  return sections;
 }
 
 // ─── GENERATE ────────────────────────────────────────────
@@ -808,9 +918,8 @@ async function startGenerate() {
   document.getElementById('progress-section').style.display = 'block';
 
   try {
-    await stepProgress(1, 'Phân tích đề tài và cấu trúc...');
+    await stepProgress(1, 'Phân tích cấu trúc tài liệu...');
 
-    // Build prompt
     const docTypeLabel = {
       luan_van: 'Luận văn / Khóa luận tốt nghiệp đại học',
       do_an: 'Báo cáo đồ án môn học',
@@ -821,99 +930,46 @@ async function startGenerate() {
     const defaultStructure = getDefaultStructure(docType);
     const structureText = structure || defaultStructure;
     
-    // Count expected sections in structure
-    const structureLines = structureText.split('\n').filter(l => l.trim().length > 0);
-
-    const prompt = `You must write an academic document in Vietnamese. Generate content for EVERY section listed below.
-
-TOPIC: ${topic}
-DOCUMENT TYPE: ${docTypeLabel}
-${major ? `FIELD: ${major}` : ''}
-${description ? `DESCRIPTION: ${description}` : ''}
-
-COMPLETE STRUCTURE - Write content for ALL ${structureLines.length} sections:
-${structureLines.map((line, idx) => `${idx + 1}. ${line}`).join('\n')}
-
-REQUIREMENTS:
-- You MUST generate exactly ${structureLines.length} sections
-- Write 150-300 words for each section
-- Write in Vietnamese, academic style
-- Do NOT skip any sections
-- Do NOT combine sections
-- Do NOT truncate output
-
-OUTPUT FORMAT - Generate ALL sections with this format:
----SECTION---
-HEADING: Section name from list
-LEVEL: 1 or 2 (1=main, 2=sub)
-CONTENT: 150-300 words of Vietnamese content
----SECTION---
-HEADING: Next section name
-LEVEL: 1 or 2
-CONTENT: Content
-
-Rules:
-- Create ${structureLines.length} separate ---SECTION--- blocks
-- Use exact headings from the structure list
-- No line breaks in CONTENT
-- Write academic Vietnamese
-- You must complete all ${structureLines.length} sections before finishing`;
-
-
-
-
-
-
-
-    await stepProgress(2, 'AI đang viết nội dung các chương...');
-
-    // Call proxy (API key được giữ an toàn ở server)
-    const response = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt })
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+    // Parse structure into chapters
+    const chapters = parseStructureIntoChapters(structureText);
+    
+    if (chapters.length === 0) {
+      throw new Error('Không thể phân tích cấu trúc. Vui lòng kiểm tra lại.');
     }
 
-    const data = await response.json();
-    let rawText = data.content.map(c => c.text || '').join('').trim();
-
-    console.log('Response length:', rawText.length, 'chars');
-
-    // Parse delimiter format instead of JSON
-    const sections = [];
-    const sectionBlocks = rawText.split('---SECTION---').filter(s => s.trim());
-
-    console.log('Found', sectionBlocks.length, 'section blocks');
-
-    for (const block of sectionBlocks) {
-      const headingMatch = block.match(/HEADING:\s*(.+?)(?:\n|LEVEL:)/);
-      const levelMatch = block.match(/LEVEL:\s*(\d+)/);
-      // Fix: use [\s\S]+ to match everything including newlines
-      const contentMatch = block.match(/CONTENT:\s*([\s\S]+?)(?=\nHEADING:|\nLEVEL:|---SECTION---|$)/);
-
-      if (headingMatch && levelMatch) {
-        const content = contentMatch ? contentMatch[1].trim() : '';
-        sections.push({
-          heading: headingMatch[1].trim(),
-          level: parseInt(levelMatch[1]),
-          content: content
-        });
-        console.log(`Section ${sections.length}: "${headingMatch[1].trim()}" - ${content.length} chars`);
+    const context = { topic, docTypeLabel, major, description };
+    
+    // Generate content for each chapter
+    await stepProgress(2, `Đang viết chương 1/${chapters.length}...`);
+    
+    const allSections = [];
+    
+    for (let i = 0; i < chapters.length; i++) {
+      const chapterNum = i + 1;
+      document.getElementById('progress-sub').textContent = `Đang viết: ${chapters[i].title} (${chapterNum}/${chapters.length})`;
+      
+      try {
+        const chapterSections = await generateChapter(chapters[i], context);
+        allSections.push(...chapterSections);
+        
+        // Small delay between chapters
+        await new Promise(r => setTimeout(r, 500));
+      } catch (err) {
+        console.error(`Error generating chapter ${i + 1}:`, err);
+        // Continue with other chapters
+        showError(`Lỗi khi tạo chương ${chapterNum}, tiếp tục với các chương còn lại...`);
+        await new Promise(r => setTimeout(r, 1000));
       }
     }
 
-    console.log('✓ Parsed', sections.length, 'sections total');
+    console.log(`✓ Generated ${allSections.length} sections total`);
 
-    if (sections.length === 0) {
-      throw new Error('Could not parse any sections from AI response');
+    if (allSections.length === 0) {
+      throw new Error('Không thể tạo nội dung. Vui lòng thử lại.');
     }
 
-    // Log each section summary
-    console.table(sections.map(s => ({
+    // Log summary
+    console.table(allSections.map(s => ({
       heading: s.heading.substring(0, 40),
       level: s.level,
       chars: s.content.length,
@@ -923,7 +979,7 @@ Rules:
     const parsed = {
       title: topic,
       docType: docTypeLabel,
-      sections: sections
+      sections: allSections
     };
 
     await stepProgress(3, 'Áp dụng format Word...');
