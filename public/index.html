@@ -819,6 +819,10 @@ async function startGenerate() {
     }[docType];
 
     const defaultStructure = getDefaultStructure(docType);
+    const structureText = structure || defaultStructure;
+    
+    // Count expected sections in structure
+    const structureLines = structureText.split('\n').filter(l => l.trim().length > 0);
 
     const prompt = `Write an academic document in Vietnamese about the following topic.
 
@@ -827,16 +831,21 @@ DOCUMENT TYPE: ${docTypeLabel}
 ${major ? `FIELD: ${major}` : ''}
 ${description ? `DESCRIPTION: ${description}` : ''}
 
-STRUCTURE:
-${structure || defaultStructure}
+STRUCTURE TO FOLLOW (Generate content for EVERY section listed):
+${structureText}
 
-Write 150-300 words per section in academic Vietnamese.
+REQUIREMENTS:
+- Write 150-300 words for EACH section listed above
+- Write in Vietnamese, academic style
+- Generate content for ALL ${structureLines.length} sections in the structure
+- Do not skip any sections
+- Do not combine sections
 
-OUTPUT FORMAT - Use this exact delimiter format (easier to parse than JSON):
+OUTPUT FORMAT - One delimiter block per section:
 ---SECTION---
 HEADING: Lời mở đầu
 LEVEL: 1
-CONTENT: Your Vietnamese content here (no line breaks, just continuous text)
+CONTENT: Your Vietnamese content here (no line breaks)
 ---SECTION---
 HEADING: Chương 1: Cơ sở lý thuyết
 LEVEL: 1
@@ -847,11 +856,12 @@ LEVEL: 2
 CONTENT: Your Vietnamese content here
 
 Rules:
-- Start each section with ---SECTION---
+- Create one ---SECTION--- block for each item in the structure
 - Use HEADING:, LEVEL:, CONTENT: labels
-- Level 1 = main chapters, Level 2 = subsections
-- No line breaks within CONTENT
-- Write naturally in Vietnamese (quotes are fine)`;
+- Level 1 = main chapters/sections, Level 2 = subsections
+- No line breaks within CONTENT values
+- Write naturally in Vietnamese
+- Total output should have ${structureLines.length} sections`;
 
 
 
@@ -904,6 +914,14 @@ Rules:
     if (sections.length === 0) {
       throw new Error('Could not parse any sections from AI response');
     }
+
+    // Log each section summary
+    console.table(sections.map(s => ({
+      heading: s.heading.substring(0, 40),
+      level: s.level,
+      chars: s.content.length,
+      words: Math.round(s.content.split(/\s+/).length)
+    })));
 
     const parsed = {
       title: topic,
