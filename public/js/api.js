@@ -4,10 +4,11 @@
 
 // ─── CALL AI API ─────────────────────────────────────────
 async function callAI(prompt) {
+  const model = document.getElementById('aiModel')?.value || 'gemini-2.5-flash-lite';
   const response = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt })
+    body: JSON.stringify({ prompt, model })
   });
 
   if (!response.ok) {
@@ -15,7 +16,14 @@ async function callAI(prompt) {
   }
 
   const data = await response.json();
-  return data.content.map(c => c.text || '').join('').trim();
+  
+  // Handle both Claude and Gemini response formats
+  if (data.content) {
+    return data.content.map(c => c.text || '').join('').trim();
+  } else if (data.candidates) {
+    return data.candidates[0]?.content?.parts[0]?.text || '';
+  }
+  return '';
 }
 
 // ─── GENERATE CHAPTER CONTENT ────────────────────────────

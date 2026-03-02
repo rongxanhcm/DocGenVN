@@ -11,7 +11,7 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  const { prompt } = req.body;
+  const { prompt, model = 'gemini-2.5-flash-lite' } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ error: 'Missing prompt' });
@@ -23,23 +23,47 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY, // ← Key nằm ở đây, an toàn
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 10000,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
+    let response;
+
+    if (model.includes('gemini')) {
+      // Google Gemini API
+      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GOOGLE_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            maxOutputTokens: 10000,
+          }
+        }),
+      });
+    } else {
+      // Claude/Anthropic API
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: model || 'claude-haiku-4-5-20251001',
+          max_tokens: 10000,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+    }
 
     if (!response.ok) {
       const err = await response.text();
-      console.error('Anthropic API error:', err);
+      console.error(`${model} API error:`, err);
       return res.status(response.status).json({ error: 'AI API error' });
     }
 

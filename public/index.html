@@ -38,7 +38,7 @@
 <main>
   <div id="form-section">
     <div class="hero">
-      <h1>🚀 Trợ lý viết văn bản học thuật<br><em>bằng AI, xuất thẳng Word</em></h1>
+      <h1>Trợ lý viết văn bản học thuật<br><em>bằng AI, xuất thẳng Word</em></h1>
       <p>Nhập đề tài, chọn format — Luana AI sẽ viết toàn bộ nội dung và xuất file .docx đúng chuẩn cho bạn.</p>
     </div>
 
@@ -85,6 +85,14 @@
           <label>Ngành học <span>(giúp AI viết đúng chuyên ngành)</span></label>
           <input type="text" id="major" placeholder="VD: Quản trị kinh doanh, CNTT, Kinh tế..." />
         </div>
+      </div>
+
+      <div class="field">
+        <label>AI Model <span>(chọn model cho chất lượng tốt hơn)</span></label>
+        <select id="aiModel">
+          <option value="gemini-2.5-flash-lite" selected>🚀 Gemini 2.5 Flash Lite (nhanh & tối ưu)</option>
+          <option value="claude-haiku-4-5">📚 Claude Haiku 4.5 (cân bằng)</option>
+        </select>
       </div>
 
       <div class="field">
@@ -292,7 +300,7 @@ Kết luận" style="min-height: 160px;" maxlength="2000"></textarea>
   </div>
 </main>
 
-<footer>Luana AI — Powered by Claude AI · Trợ lý viết văn bản học thuật</footer>
+<footer>Luana AI — Powered by Gemini 2.5 Flash Lite / Claude · Trợ lý viết văn bản học thuật</footer>
 
 <!-- JavaScript Files -->
 <script src="js/config.js"></script>
