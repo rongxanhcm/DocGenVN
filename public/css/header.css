@@ -4,7 +4,7 @@
 
 header {
   border-bottom: 1px solid var(--border);
-  padding: 20px 40px;
+  padding: 24px 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -19,7 +19,7 @@ header {
 
 .logo {
   font-family: var(--ff-serif);
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--text);
   letter-spacing: -0.5px;
@@ -50,11 +50,11 @@ header {
 
 .badge {
   font-family: var(--ff-mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text3);
   border: 1px solid var(--orange);
-  padding: 4px 10px;
-  border-radius: 4px;
+  padding: 6px 12px;
+  border-radius: 5px;
   letter-spacing: 1px;
   text-transform: uppercase;
   background: var(--orange-pale);

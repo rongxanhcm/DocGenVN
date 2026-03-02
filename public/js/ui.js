@@ -77,6 +77,97 @@ function setupPresetButtons() {
   });
 }
 
+// ─── STRUCTURE TEMPLATE BUTTONS ──────────────────────────
+function setupStructureTemplates() {
+  const structureTextarea = document.getElementById('structure');
+  const docTypeSelect = document.getElementById('docType');
+  
+  // Map docType to template
+  const docTypeToTemplate = {
+    'luan_van': 'luan_van',
+    'do_an': 'do_an',
+    'tieu_luan': 'tieu_luan',
+    'bao_cao': 'bao_cao'
+  };
+  
+  // Auto-load template when docType changes
+  docTypeSelect.addEventListener('change', () => {
+    const docType = docTypeSelect.value;
+    const templateType = docTypeToTemplate[docType] || 'tieu_luan';
+    
+    // Only auto-load if textarea is empty or has a template structure
+    const currentValue = structureTextarea.value.trim();
+    if (!currentValue || currentValue.includes('Mở đầu') || currentValue.includes('Chương')) {
+      const templateContent = getDefaultStructure(templateType);
+      structureTextarea.value = templateContent;
+      structureTextarea.dispatchEvent(new Event('input'));
+      
+      // Update active template button
+      document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+      const btn = document.querySelector(`.template-btn[data-template="${templateType}"]`);
+      if (btn) btn.classList.add('active');
+    }
+  });
+  
+  // Template button click handlers
+  document.querySelectorAll('.template-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      const templateType = btn.dataset.template;
+      
+      if (templateType === 'custom') {
+        // Custom mode - don't change textarea, just mark as active
+        structureTextarea.focus();
+      } else {
+        // Load template
+        const templateContent = getDefaultStructure(templateType);
+        structureTextarea.value = templateContent;
+        
+        // Trigger events to update counter and preview
+        structureTextarea.dispatchEvent(new Event('input'));
+        
+        // Show a brief feedback
+        btn.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          btn.style.transform = '';
+        }, 150);
+      }
+    });
+  });
+  
+  // When user manually edits textarea, mark as "custom"
+  let userIsTyping = false;
+  structureTextarea.addEventListener('input', () => {
+    if (!userIsTyping) {
+      userIsTyping = true;
+      // Debounce: if user is typing, mark as custom after a delay
+      setTimeout(() => {
+        const currentTemplate = document.querySelector('.template-btn.active');
+        if (currentTemplate && currentTemplate.dataset.template !== 'custom') {
+          // Check if content matches any template
+          const currentValue = structureTextarea.value.trim();
+          let matchesTemplate = false;
+          
+          ['luan_van', 'do_an', 'tieu_luan', 'thuc_tap', 'bao_cao', 'nghien_cuu'].forEach(type => {
+            if (getDefaultStructure(type).trim() === currentValue) {
+              matchesTemplate = true;
+            }
+          });
+          
+          if (!matchesTemplate && currentValue) {
+            // User has modified the template, mark as custom
+            document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector('.template-btn[data-template="custom"]')?.classList.add('active');
+          }
+        }
+        userIsTyping = false;
+      }, 1000);
+    }
+  });
+}
+
 // ─── STEP PROGRESS ───────────────────────────────────────
 async function stepProgress(step, msg) {
   const progressPercent = [25, 50, 75, 100];

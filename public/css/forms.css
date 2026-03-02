@@ -16,7 +16,7 @@
 
 .field label {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text2);
   margin-bottom: 8px;
@@ -48,8 +48,8 @@ select {
   border: 2px solid var(--border);
   color: var(--text);
   font-family: var(--ff-sans);
-  font-size: 14px;
-  padding: 12px 14px;
+  font-size: 15px;
+  padding: 14px 16px;
   border-radius: 8px;
   outline: none;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -77,7 +77,7 @@ select:hover {
 
 textarea { 
   resize: vertical; 
-  min-height: 80px; 
+  min-height: 100px; 
 }
 
 select { 
@@ -90,7 +90,7 @@ select option {
 
 /* ─── CHARACTER COUNTER ─── */
 .char-counter {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text3);
   text-align: right;
   margin-top: 6px;
@@ -133,9 +133,9 @@ select option {
   background: linear-gradient(135deg, rgba(239,68,68,0.08), rgba(239,68,68,0.04));
   border: 1.5px solid rgba(239,68,68,0.4);
   color: var(--red);
-  padding: 14px 18px;
+  padding: 16px 20px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14px;
   margin-top: 16px;
   display: none;
   animation: slideInDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);

@@ -37,6 +37,9 @@ window.addEventListener('DOMContentLoaded', function() {
   // Setup preset buttons
   setupPresetButtons();
 
+  // Setup structure template buttons
+  setupStructureTemplates();
+
   // Setup structure preview
   document.getElementById('structure').addEventListener('input', function() {
     updateStructurePreview(this.value);
