@@ -3,13 +3,15 @@
    ======================================== */
 
 // ─── CALL AI API ─────────────────────────────────────────
-async function callAI(prompt) {
+async function callAI(prompt, options = {}) {
   const provider = document.getElementById('aiProvider')?.value || 'gemini';
   const model = document.getElementById('aiModel')?.value || 'gemini-2.5-flash-lite';
+  const { notifyEvent = false, tracking = null } = options;
+
   const response = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, provider, model })
+    body: JSON.stringify({ prompt, provider, model, notifyEvent, tracking })
   });
 
   if (!response.ok) {
@@ -45,7 +47,7 @@ async function generateChapter(chapterInfo, context) {
     return [{ heading: chapterInfo.title, level: 1, content: '', isStructural: true }];
   }
 
-  const { topic, docTypeLabel, major, description } = context;
+  const { topic, docTypeLabel, major, description, notifyEvent, chapterIndex, totalChapters } = context;
 
   const prompt = `Write content for this chapter of a Vietnamese academic document.
 
@@ -80,7 +82,15 @@ CONTENT: [content]
 
 Generate all ${chapterInfo.sections.length} sections now.`;
 
-  const rawText = await callAI(prompt);
+  const rawText = await callAI(prompt, {
+    notifyEvent: !!notifyEvent,
+    tracking: {
+      topic,
+      chapterTitle: chapterInfo.title,
+      chapterIndex,
+      totalChapters
+    }
+  });
 
   const sections = [];
   const sectionBlocks = rawText.split('---SECTION---').filter(s => s.trim());
