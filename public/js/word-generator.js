@@ -149,23 +149,19 @@ async function buildDocx(content, fmt, cover) {
   // ─── SECTION 2: FRONT MATTER (Table of Contents - Roman numerals or no numbering) ───
   const frontMatterChildren = [];
 
-  // ─── TABLE OF CONTENTS (thực sự, với page numbers placeholder) ───
+  // ─── MỤC LỤC TITLE ───
   frontMatterChildren.push(new Paragraph({
     heading: HeadingLevel.HEADING_1,
     spacing: { after: 200 },
     children: [new TextRun({ text: 'MỤC LỤC' })]
   }));
 
-  for (const section of (content.sections || [])) {
-    if (section.isStructural) continue; // bỏ qua structural sections trong TOC render
-    const level = section.level || 1;
-    const indent = (level - 1) * cmToTwip(0.8);
-    frontMatterChildren.push(new Paragraph({
-      indent: { left: indent },
-      spacing: { after: 60 },
-      children: [new TextRun({ text: section.heading || '', font: fmt.fontName, size: ptToHalfPt(fmt.fontSize - 0.5), bold: level === 1, color: level === 1 ? '000000' : '333333' })]
-    }));
-  }
+  // ─── REAL WORD TOC FIELD (tự sinh số trang khi mở Word, bấm Update Field) ───
+  frontMatterChildren.push(new TableOfContents('Mục Lục', {
+    hyperlink: true,
+    headingStyleRange: '1-3',
+    entryAndPageNumberSeparator: '\t',
+  }));
 
   // ─── DANH SÁCH HÌNH & BẢNG (placeholder đúng chuẩn) ───
   const hinhSections = (content.sections || []).filter(s =>
